@@ -1,6 +1,7 @@
 DEF LINE_CAP_NONE = 0
 DEF LINE_CAP_SQUARE = 1
 DEF LINE_CAP_ROUND = 2
+DEF LINE_CAP_ARROW = 3
 
 DEF LINE_JOINT_NONE = 0
 DEF LINE_JOINT_MITER = 1
@@ -25,6 +26,9 @@ cdef inline int line_intersection(double x1, double y1, double x2, double y2,
     px[0] = (u * (x3 - x4) - (x1 - x2) * v) / denom
     py[0] = (u * (y3 - y4) - (y1 - y2) * v) / denom
     return 1
+
+cdef extern from "math.h":
+    double sqrt(double x)
 
 cdef class Line(VertexInstruction):
     '''A 2d line.
@@ -100,6 +104,7 @@ cdef class Line(VertexInstruction):
     cdef int _bezier_precision
     cdef int _joint
     cdef list _points
+    cdef list _arrow
     cdef float _width
     cdef int _dash_offset, _dash_length
     cdef int _use_stencil
@@ -142,6 +147,9 @@ cdef class Line(VertexInstruction):
             self.rectangle = kwargs['rectangle']
         if 'bezier' in kwargs:
             self.bezier = kwargs['bezier']
+        if 'arrow' in kwargs:
+            self.arrow = kwargs['arrow']
+
 
     cdef void build(self):
         if self._mode == LINE_MODE_ELLIPSE:
@@ -152,6 +160,8 @@ cdef class Line(VertexInstruction):
             self.prebuild_rectangle()
         elif self._mode == LINE_MODE_BEZIER:
             self.prebuild_bezier()
+        if self.arrow:
+            self.prebuild_arrow()
         if self._width == 1.0:
             self.build_legacy()
         else:
@@ -629,8 +639,16 @@ cdef class Line(VertexInstruction):
             indices[ii + 2] = piv + 2
             ii += 3
 
-        #print 'ii=', ii, 'indices_count=', indices_count
-        #print 'iv=', iv, 'vertices_count', vertices_count
+        elif cap == LINE_CAP_ARROW:
+            print "LINE_CAP_ARROW"
+            # print "Vistices obj: ", vertices
+            # print "Vistices obj_dir: ", dir(vertices)
+            print "x2: ", x2
+            print "y2: ", y2
+            print "x3: ", x3
+            print "y3: ", y3
+            print "ii: ", ii
+            print "iv: ", iv
 
         # compute bbox
         for i in xrange(vertices_count):
@@ -717,10 +735,12 @@ cdef class Line(VertexInstruction):
                 return 'square'
             elif self._cap == LINE_CAP_ROUND:
                 return 'round'
+            # elif self._cap == LINE_CAP_ARROW:
+            #     return 'arrow'
             return 'none'
 
         def __set__(self, value):
-            if value not in ('none', 'square', 'round'):
+            if value not in ('none', 'square', 'round',):
                 raise GraphicException('Invalid cap, must be one of '
                         '"none", "square", "round"')
             if value == 'square':
@@ -1079,3 +1099,52 @@ cdef class Line(VertexInstruction):
                 raise GraphicException('Invalid bezier_precision value, must be >= 1')
             self._bezier_precision = int(value)
             self.flag_update()
+
+
+    property arrow:
+        '''Use this property to build a arrow in the end if line.
+        Usage::
+            Line(arrow=(w, h))
+        '''
+
+
+        def __get__(self):
+            return self._arrow
+
+        def __set__(self, value):
+            self._arrow = list(value)
+            self.flag_update()
+
+
+    cdef void prebuild_arrow(self):
+        cdef list new_p = [0, ] * 6
+        cdef list last_p = [0, ] * 4
+        cdef list vector_i = [1,1]
+        cdef list vector_n = [1,1]
+        cdef double vector_len = 1
+        cdef double min_delta = 0.0000001
+
+        last_p = self._points[-4:]
+
+        # We need to find two last different points
+        if last_p[:2] == last_p[-2:]:
+            # print "RAnge", range(4, len(self._points), 2)
+            for i in xrange(4, len(self._points), 2):
+                # print "Check points", self._points[-i:-i+2]
+                if abs(self._points[-i] - last_p[0]) > min_delta or abs(self._points[-i-1] - last_p[1]) > min_delta:
+                    last_p[:2] = self._points[-i:-i+2]
+                    break
+
+        vector_len = sqrt((last_p[-2] - last_p[-4])*(last_p[-2] - last_p[-4]) + (last_p[-1] - last_p[-3])*(last_p[-1] - last_p[-3]))
+        if vector_len < min_delta: vector_len += min_delta
+        vector_i = [(last_p[-2] - last_p[-4])/vector_len, (last_p[-1] - last_p[-3])/vector_len]
+        vector_n[1] = -vector_i[0]/vector_i[1]
+        vector_len = sqrt(vector_n[0]*vector_n[0] + vector_n[1]*vector_n[1])
+        if vector_len < min_delta: vector_len += min_delta
+        vector_n = [vector_n[0]/vector_len, vector_n[1]/vector_len]
+        new_p = [last_p[-2] - self.arrow[1]*vector_i[0] + self.arrow[0]*vector_n[0],
+                 last_p[-1] - self.arrow[1]*vector_i[1] + self.arrow[0]*vector_n[1],
+                 last_p[-2],last_p[-1],
+                 last_p[-2] - self.arrow[1]*vector_i[0] - self.arrow[0]*vector_n[0],
+                 last_p[-1] - self.arrow[1]*vector_i[1] - self.arrow[0]*vector_n[1],]
+        self._points.extend(new_p)
