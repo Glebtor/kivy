@@ -1138,7 +1138,10 @@ cdef class Line(VertexInstruction):
         vector_len = sqrt((last_p[-2] - last_p[-4])*(last_p[-2] - last_p[-4]) + (last_p[-1] - last_p[-3])*(last_p[-1] - last_p[-3]))
         if vector_len < min_delta: vector_len += min_delta
         vector_i = [(last_p[-2] - last_p[-4])/vector_len, (last_p[-1] - last_p[-3])/vector_len]
-        vector_n[1] = -vector_i[0]/vector_i[1]
+        if vector_i[1] == 0:
+            vector_n = [0, 1]
+        else:
+            vector_n[1] = -vector_i[0]/vector_i[1]
         vector_len = sqrt(vector_n[0]*vector_n[0] + vector_n[1]*vector_n[1])
         if vector_len < min_delta: vector_len += min_delta
         vector_n = [vector_n[0]/vector_len, vector_n[1]/vector_len]
