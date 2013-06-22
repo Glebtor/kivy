@@ -402,8 +402,8 @@ class ScrollView(StencilView):
             'moves': FixedList(self.scroll_moves)}
 
         Clock.schedule_interval(self._update_delta, 0)
-        Clock.schedule_once(self._change_touch_mode,
-                            self.scroll_timeout / 1000.)
+        #Clock.schedule_once(self._change_touch_mode,
+        #                    self.scroll_timeout / 1000.)
         return True
 
     def on_touch_move(self, touch):
