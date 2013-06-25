@@ -268,6 +268,7 @@ cdef class EventDispatcher(object):
         '''
         cdef list event_stack = self.__event_stack[event_type]
         cdef object remove = event_stack.remove
+        event_stack.reverse()
         for value in event_stack[:]:
             handler = value()
             if handler is None:
