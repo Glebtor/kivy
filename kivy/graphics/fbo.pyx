@@ -171,10 +171,12 @@ cdef class Fbo(RenderContext):
         self.depthbuffer_id = 0
 
     cdef void create_fbo(self):
-        cdef GLuint f_id = 0
+        cdef GLuint f_id = 1
         cdef GLint old_fid = 0
         cdef int status
         cdef int do_clear = 0
+        # we assume that for graphic texture id is 0
+        cdef GLuint depth_texture = 1
 
         # create texture
         if self._texture is None:
@@ -192,10 +194,11 @@ cdef class Fbo(RenderContext):
 
         # if we need depth, create a renderbuffer
         if self._depthbuffer_attached:
+             
             glGenRenderbuffers(1, &f_id)
             self.depthbuffer_id = f_id
             glBindRenderbuffer(GL_RENDERBUFFER, self.depthbuffer_id)
-            glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT,
+            glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16,
                                   self._width, self._height)
             glBindRenderbuffer(GL_RENDERBUFFER, 0)
             glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
@@ -237,7 +240,7 @@ cdef class Fbo(RenderContext):
             self.fbo.release()
 
             # then, your fbo texture is available at
-            print self.fbo.texture
+            print(self.fbo.texture)
         '''
         if self._is_bound:
             self.raise_exception('FBO already binded.')
@@ -381,11 +384,30 @@ cdef class Fbo(RenderContext):
     property pixels:
         '''Get the pixels texture, in RGBA format only, unsigned byte.
 
-        .. versionadded:: 1.6.1
+        .. versionadded:: 1.7.0
         '''
         def __get__(self):
             w,h = self._width, self._height
             self.bind()
             data = py_glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE)
             self.release()
-            return str(buffer(data))
+            return data
+
+    cpdef get_pixel_color(self, int wx, int wy):
+        """
+            Get the color of the pixel with specified window
+            coordinates wx, wy. It returns result in RGBA format
+ 
+        .. versionadded:: 1.8.0
+        """
+        if wx > self._width or wy > self._height:
+            # window coordinates should not exceed the
+            # frame buffer size
+            return (0, 0, 0, 0)
+        self.bind()
+        data = py_glReadPixels(wx, wy, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE)
+        self.release()
+        raw_data = str(buffer(data))
+        
+        return [ord(i) for i in raw_data]
+
