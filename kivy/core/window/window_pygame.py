@@ -7,6 +7,7 @@ __all__ = ('WindowPygame', )
 # fail early if possible
 import pygame
 
+from kivy.compat import PY2
 from kivy.core.window import WindowBase
 from kivy.core import CoreCriticalException
 from os import environ
@@ -18,9 +19,14 @@ from kivy.logger import Logger
 from kivy.base import stopTouchApp, EventLoop
 from kivy.utils import platform
 
+# When we are generating documentation, Config doesn't exist
+_exit_on_escape = True
+if Config:
+    _exit_on_escape = Config.getboolean('kivy', 'exit_on_escape')
+
 try:
     android = None
-    if platform() == 'android':
+    if platform == 'android':
         import android
 except ImportError:
     pass
@@ -48,13 +54,13 @@ class WindowPygame(WindowBase):
         # right now, activate resizable window only on linux.
         # on window / macosx, the opengl context is lost, and we need to
         # reconstruct everything. Check #168 for a state of the work.
-        if platform() in ('linux', 'macosx', 'win') and \
+        if platform in ('linux', 'macosx', 'win') and \
             Config.getint('graphics', 'resizable'):
             self.flags |= pygame.RESIZABLE
 
         try:
             pygame.display.init()
-        except pygame.error, e:
+        except pygame.error as e:
             raise CoreCriticalException(e.message)
 
         multisamples = Config.getint('graphics', 'multisamples')
@@ -104,7 +110,7 @@ class WindowPygame(WindowBase):
             #filename_icon = Config.get('kivy', 'window_icon')
             filename_icon = self.icon or Config.get('kivy', 'window_icon')
             if filename_icon == '':
-                logo_size = 512 if platform() == 'macosx' else 32
+                logo_size = 512 if platform == 'macosx' else 32
                 filename_icon = join(kivy_home_dir, 'icon', 'kivy-icon-%d.png' %
                         logo_size)
             self.set_icon(filename_icon)
@@ -114,7 +120,7 @@ class WindowPygame(WindowBase):
         # try to use mode with multisamples
         try:
             self._pygame_set_mode()
-        except pygame.error, e:
+        except pygame.error as e:
             if multisamples:
                 Logger.warning('WinPygame: Video: failed (multisamples=%d)' %
                                multisamples)
@@ -124,7 +130,7 @@ class WindowPygame(WindowBase):
                 multisamples = 0
                 try:
                     self._pygame_set_mode()
-                except pygame.error, e:
+                except pygame.error as e:
                     raise CoreCriticalException(e.message)
             else:
                 raise CoreCriticalException(e.message)
@@ -138,7 +144,7 @@ class WindowPygame(WindowBase):
         Logger.debug('Window: Display driver ' + pygame.display.get_driver())
         Logger.debug('Window: Actual window size: %dx%d',
                 info.current_w, info.current_h)
-        if platform() != 'android':
+        if platform != 'android':
             # unsupported platform, such as android that doesn't support
             # gl_get_attribute.
             Logger.debug('Window: Actual color bits r%d g%d b%d a%d',
@@ -176,10 +182,13 @@ class WindowPygame(WindowBase):
         try:
             if not exists(filename):
                 return False
-            try:
+            if PY2:
+                try:
+                    im = pygame.image.load(filename)
+                except UnicodeEncodeError:
+                    im = pygame.image.load(filename.encode('utf8'))
+            else:
                 im = pygame.image.load(filename)
-            except UnicodeEncodeError:
-                im = pygame.image.load(filename.encode('utf8'))
             if im is None:
                 raise Exception('Unable to load window icon (not found)')
             pygame.display.set_icon(im)
@@ -208,8 +217,9 @@ class WindowPygame(WindowBase):
         codepoint = codepoint or kwargs.get('unicode')
         # Quit if user presses ESC or the typical OSX shortcuts CMD+q or CMD+w
         # TODO If just CMD+w is pressed, only the window should be closed.
-        is_osx = platform() == 'darwin'
-        if key == 27 or (is_osx and key in (113, 119) and modifier == 1024):
+        is_osx = platform == 'darwin'
+        if _exit_on_escape and (key == 27 or
+                (is_osx and key in (113, 119) and modifier == 1024)):
             stopTouchApp()
             self.close()  # not sure what to do here
             return True
@@ -325,7 +335,7 @@ class WindowPygame(WindowBase):
                 self._mainloop()
                 if not pygame.display.get_active():
                     pygame.time.wait(100)
-            except BaseException, inst:
+            except BaseException as inst:
                 # use exception manager first
                 r = ExceptionManager.handle_exception(inst)
                 if r == ExceptionManager.RAISE:
@@ -362,10 +372,11 @@ class WindowPygame(WindowBase):
         if mods & (pygame.KMOD_META | pygame.KMOD_LMETA):
             self._modifiers.append('meta')
 
-    def request_keyboard(self, *largs):
-        keyboard = super(WindowPygame, self).request_keyboard(*largs)
+    def request_keyboard(self, callback, target, input_type='text'):
+        keyboard = super(WindowPygame, self).request_keyboard(
+            callback, target, input_type)
         if android and not self.allow_vkeyboard:
-            android.show_keyboard()
+            android.show_keyboard(target, input_type)
         return keyboard
 
     def release_keyboard(self, *largs):

@@ -32,8 +32,8 @@ from kivy.graphics.context cimport Context, get_context
 from kivy.graphics.instructions cimport getActiveContext
 from kivy.graphics.shader cimport Shader
 
-cdef VertexFormat default_vertex = VertexFormat( ('vPosition', 2, 'float'),
-        ('vTexCoords0', 2, 'float'))
+cdef VertexFormat default_vertex = VertexFormat( (b'vPosition', 2, 'float'),
+        (b'vTexCoords0', 2, 'float'))
 
 cdef short V_NEEDGEN = 1 << 0
 cdef short V_NEEDUPLOAD = 1 << 1
@@ -99,7 +99,7 @@ cdef class VBO:
             if attr.per_vertex == 0:
                 continue
             glVertexAttribPointer(attr.index, attr.size, attr.type,
-                    GL_FALSE, self.format_size, <GLvoid*><long>offset)
+                    GL_FALSE, <GLsizei>self.format_size, <GLvoid*><long>offset)
             offset += attr.bytesize
 
     cdef void unbind(self):

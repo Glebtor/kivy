@@ -59,15 +59,15 @@ cdef class Line(VertexInstruction):
             next one, default 0, changing this makes it dashed.
         `width`: float
             Width of the line, default 1.0
-        `cap`: str, default to 'round'
+        `cap`: str, defaults to 'round'
             See :data:`cap` for more information.
-        `joint`: str, default to 'round'
+        `joint`: str, defaults to 'round'
             See :data:`joint` for more information.
-        `cap_precision`: int, default to 10
+        `cap_precision`: int, defaults to 10
             See :data:`cap_precision` for more information
-        `joint_precision`: int, default to 10
+        `joint_precision`: int, defaults to 10
             See :data:`joint_precision` for more information
-        `close`: bool, default to False
+        `close`: bool, defaults to False
             If True, the line will be closed.
         `circle`: list
             If set, the :data:`points` will be set to build a circle. Check
@@ -81,7 +81,7 @@ cdef class Line(VertexInstruction):
         `bezier`: list
             If set, the :data:`points` will be set to build a bezier line. Check
             :data:`bezier` for more information.
-        `bezier_precision`: int, default to 180
+        `bezier_precision`: int, defaults to 180
             Precision of the Bezier drawing.
 
     .. versionadded:: 1.0.8
@@ -188,7 +188,8 @@ cdef class Line(VertexInstruction):
             VertexInstruction.apply(self)
 
     cdef void build_legacy(self):
-        cdef int i, count = len(self.points) / 2
+        cdef int i
+        cdef long count = len(self.points) / 2
         cdef list p = self.points
         cdef vertex_t *vertices = NULL
         cdef unsigned short *indices = NULL
@@ -218,7 +219,7 @@ cdef class Line(VertexInstruction):
             buf = <char *>malloc(4 * (self._dash_length + self._dash_offset))
             memset(buf, 255, self._dash_length * 4)
             memset(buf + self._dash_length * 4, 0, self._dash_offset * 4)
-            p_str = PyString_FromStringAndSize(buf,  (self._dash_length + self._dash_offset) * 4)
+            p_str = buf[:(self._dash_length + self._dash_offset) * 4]
 
             self.texture.blit_buffer(p_str, colorfmt='rgba', bufferfmt='ubyte')
             free(buf)
@@ -250,13 +251,14 @@ cdef class Line(VertexInstruction):
             vertices[i].y = p[i * 2 + 1]
             indices[i] = i
 
-        self.batch.set_data(vertices, count, indices, count)
+        self.batch.set_data(vertices, <int>count, indices, <int>count)
 
         free(vertices)
         free(indices)
 
     cdef void build_extended(self):
-        cdef int i, j, count = len(self.points) / 2
+        cdef int i, j
+        cdef long count = len(self.points) / 2
         cdef list p = self.points
         cdef vertex_t *vertices = NULL
         cdef unsigned short *indices = NULL
@@ -281,8 +283,8 @@ cdef class Line(VertexInstruction):
             cap = LINE_CAP_NONE
 
         self.batch.set_mode('triangles')
-        cdef unsigned int vertices_count = (count - 1) * 4
-        cdef unsigned int indices_count = (count - 1) * 6
+        cdef unsigned long vertices_count = (count - 1) * 4
+        cdef unsigned long indices_count = (count - 1) * 6
         cdef unsigned int iv = 0, ii = 0
 
         if self._joint == LINE_JOINT_BEVEL:
@@ -629,9 +631,6 @@ cdef class Line(VertexInstruction):
             indices[ii + 2] = piv + 2
             ii += 3
 
-        #print 'ii=', ii, 'indices_count=', indices_count
-        #print 'iv=', iv, 'vertices_count', vertices_count
-
         # compute bbox
         for i in xrange(vertices_count):
             if vertices[i].x < self._bxmin:
@@ -643,7 +642,8 @@ cdef class Line(VertexInstruction):
             if vertices[i].y > self._bymax:
                 self._bymax = vertices[i].y
 
-        self.batch.set_data(vertices, vertices_count, indices, indices_count)
+        self.batch.set_data(vertices, <int>vertices_count,
+		                   indices, <int>indices_count)
 
         free(vertices)
         free(indices)
@@ -693,7 +693,7 @@ cdef class Line(VertexInstruction):
             self.flag_update()
 
     property width:
-        '''Determine the width of the line, default to 1.0.
+        '''Determine the width of the line, defaults to 1.0.
 
         .. versionadded:: 1.4.1
         '''
@@ -707,7 +707,7 @@ cdef class Line(VertexInstruction):
             self.flag_update()
 
     property cap:
-        '''Determine the cap of the line, default to 'round'. Can be one of
+        '''Determine the cap of the line, defaults to 'round'. Can be one of
         'none', 'square' or 'round'
 
         .. versionadded:: 1.4.1
@@ -732,7 +732,7 @@ cdef class Line(VertexInstruction):
             self.flag_update()
 
     property joint:
-        '''Determine the join of the line, default to 'round'. Can be one of
+        '''Determine the join of the line, defaults to 'round'. Can be one of
         'none', 'round', 'bevel', 'miter'.
 
         .. versionadded:: 1.4.1
@@ -762,7 +762,7 @@ cdef class Line(VertexInstruction):
             self.flag_update()
 
     property cap_precision:
-        '''Number of iteration for drawing the "round" cap, default to 10.
+        '''Number of iteration for drawing the "round" cap, defaults to 10.
         The cap_precision must be at least 1.
 
         .. versionadded:: 1.4.1
@@ -778,7 +778,7 @@ cdef class Line(VertexInstruction):
             self.flag_update()
 
     property joint_precision:
-        '''Number of iteration for drawing the "round" joint, default to 10.
+        '''Number of iteration for drawing the "round" joint, defaults to 10.
         The joint_precision must be at least 1.
 
         .. versionadded:: 1.4.1
@@ -1066,7 +1066,7 @@ cdef class Line(VertexInstruction):
 
     property bezier_precision:
         '''Number of iteration for drawing the bezier between 2 segments,
-        default to 180. The bezier_precision must be at least 1.
+        defaults to 180. The bezier_precision must be at least 1.
 
         .. versionadded:: 1.4.2
         '''

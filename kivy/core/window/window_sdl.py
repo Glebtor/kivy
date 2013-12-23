@@ -8,6 +8,7 @@ from kivy.logger import Logger
 from kivy.core.window import WindowBase
 from kivy.base import EventLoop, ExceptionManager, stopTouchApp
 from kivy.clock import Clock
+from kivy.config import Config
 import sys
 
 try:
@@ -20,6 +21,11 @@ except:
 from kivy.input.provider import MotionEventProvider
 from kivy.input.motionevent import MotionEvent
 from collections import deque
+
+# When we are generating documentation, Config doesn't exist
+_exit_on_escape = True
+if Config:
+    _exit_on_escape = Config.getboolean('kivy', 'exit_on_escape')
 
 
 class SDLMotionEvent(MotionEvent):
@@ -120,7 +126,6 @@ class WindowSDL(WindowBase):
             if event is None:
                 continue
 
-            #print 'sdl received', event
             action, args = event[0], event[1:]
             if action == 'quit':
                 EventLoop.quit = True
@@ -165,7 +170,7 @@ class WindowSDL(WindowBase):
                 pass
 
             elif action in ('keydown', 'keyup'):
-                mod, key, scancode, unicode = args
+                mod, key, scancode, str = args
 
                 # XXX ios keyboard suck, when backspace is hit, the delete
                 # keycode is sent. fix it.
@@ -179,11 +184,11 @@ class WindowSDL(WindowBase):
 
                 # don't dispatch more key if down event is accepted
                 if self.dispatch('on_key_down', key,
-                                 scancode, unicode,
+                                 scancode, str,
                                  self.modifiers):
                     continue
                 self.dispatch('on_keyboard', key,
-                              scancode, unicode,
+                              scancode, str,
                               self.modifiers)
 
             elif action == 'textinput':
@@ -245,29 +250,25 @@ class WindowSDL(WindowBase):
             if event is None:
                 continue
 
-            #print 'sdl received', event
             action, args = event[0], event[1:]
             if action == 'quit':
                 EventLoop.quit = True
                 self.close()
                 break
             elif action == 'windowrestored':
-                #print 'app goes live again!'
                 break
 
-        #print 'dispatch app on_resume'
         app.dispatch('on_resume')
 
     def mainloop(self):
         # don't known why, but pygame required a resize event
         # for opengl, before mainloop... window reinit ?
         self.dispatch('on_resize', *self.size)
-        #print 'dispatched on_resize, size is', self.size
 
         while not EventLoop.quit and EventLoop.status == 'started':
             try:
                 self._mainloop()
-            except BaseException, inst:
+            except BaseException as inst:
                 # use exception manager first
                 r = ExceptionManager.handle_exception(inst)
                 if r == ExceptionManager.RAISE:
@@ -285,18 +286,20 @@ class WindowSDL(WindowBase):
     def _pygame_update_modifiers(self, mods=None):
         return
 
-    def on_keyboard(self, key, scancode=None, unicode=None, modifier=None):
+    def on_keyboard(self, key, scancode=None, str=None, modifier=None):
         # Quit if user presses ESC or the typical OSX shortcuts CMD+q or CMD+w
         # TODO If just CMD+w is pressed, only the window should be closed.
         is_osx = sys.platform == 'darwin'
-        if key == 27 or (is_osx and key in (113, 119) and modifier == 1024):
+        if _exit_on_escape and (key == 27 or (is_osx and key in (113, 119) and
+                                              modifier == 1024)):
             stopTouchApp()
             self.close()  # not sure what to do here
             return True
-        super(WindowSDL, self).on_keyboard(key, scancode, unicode, modifier)
+        super(WindowSDL, self).on_keyboard(key, scancode, str, modifier)
 
-    def request_keyboard(self, *largs):
-        self._sdl_keyboard = super(WindowSDL, self).request_keyboard(*largs)
+    def request_keyboard(self, callback, target, input_type='text'):
+        self._sdl_keyboard = super(WindowSDL, self).request_keyboard(
+            callback, target, input_type)
         sdl.show_keyboard()
         Clock.schedule_interval(self._check_keyboard_shown, 1 / 5.)
         return self._sdl_keyboard
@@ -308,7 +311,6 @@ class WindowSDL(WindowBase):
         return True
 
     def _check_keyboard_shown(self, dt):
-        #print sdl.is_keyboard_shown()
         if self._sdl_keyboard is None:
             return False
         if not sdl.is_keyboard_shown():

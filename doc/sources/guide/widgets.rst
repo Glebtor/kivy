@@ -99,7 +99,7 @@ contains all the children. You can easily traverse the tree by doing::
     root = BoxLayout()
     # ... add widgets to root ...
     for child in root.children:
-        print child
+        print(child)
 
 However, this must be used carefuly. If you intend to modify the children list
 with one of the methods shown in the previous section, you must use a copy of
@@ -306,6 +306,8 @@ This gives us:
 
 As with |size_hint|, you should experiment with |pos_hint| to
 understand the effect it has on the widget positions.
+
+.. _adding_widget_background:
 
 Adding a Background to a Layout
 -------------------------------

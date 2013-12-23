@@ -2,7 +2,7 @@
 Native support of Wacom tablet from linuxwacom driver
 =====================================================
 
-To configure LinuxWacom, put in your configuration::
+To configure LinuxWacom, add this to your configuration::
 
     [input]
     pen = linuxwacom,/dev/input/event2,mode=pen
@@ -11,9 +11,9 @@ To configure LinuxWacom, put in your configuration::
 .. note::
     You must have read access to the input event.
 
-You have the possibility to use custom range for some X, Y and pressure value.
+You can use a custom range for the X, Y and pressure values.
 On some drivers, the range reported is invalid.
-To fix that, you can add one of theses options on the argument line :
+To fix that, you can add these options to the argument line:
 
 * invert_x : 1 to invert X axis
 * invert_y : 1 to invert Y axis
@@ -224,8 +224,8 @@ else:
             reset_touch = False
 
             def process(points):
-                actives = points.keys()
-                for args in points.itervalues():
+                actives = list(points.keys())
+                for args in points.values():
                     tid = args['id']
                     try:
                         touch = touches[tid]
@@ -242,7 +242,7 @@ else:
                         touches_sent.append(tid)
                     queue.append(('update', touch))
 
-                for tid in touches.keys()[:]:
+                for tid in list(touches.keys())[:]:
                     if tid not in actives:
                         touch = touches[tid]
                         if tid in touches_sent:
@@ -269,7 +269,7 @@ else:
             # get abs infos
             bit = fcntl.ioctl(fd, EVIOCGBIT + (EV_MAX << 16), ' ' * sz_l)
             bit, = struct.unpack('Q', bit)
-            for x in xrange(EV_MAX):
+            for x in range(EV_MAX):
                 # preserve this, we may want other things than EV_ABS
                 if x != EV_ABS:
                     continue
@@ -280,7 +280,7 @@ else:
                 sbit = fcntl.ioctl(fd, EVIOCGBIT + x + (KEY_MAX << 16),
                                     ' ' * sz_l)
                 sbit, = struct.unpack('Q', sbit)
-                for y in xrange(KEY_MAX):
+                for y in range(KEY_MAX):
                     if (sbit & (1 << y)) == 0:
                         continue
                     absinfo = fcntl.ioctl(fd, EVIOCGABS + y +
@@ -320,7 +320,7 @@ else:
                     break
 
                 # extract each event
-                for i in xrange(len(data) / struct_input_event_sz):
+                for i in range(len(data) / struct_input_event_sz):
                     ev = data[i * struct_input_event_sz:]
 
                     # extract timeval + event infos
