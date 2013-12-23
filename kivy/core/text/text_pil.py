@@ -9,6 +9,7 @@ try:
 except:
     raise
 
+from kivy.compat import text_type
 from kivy.core.text import LabelBase
 from kivy.core.image import ImageData
 
@@ -22,7 +23,11 @@ class LabelPIL(LabelBase):
     def _select_font(self):
         fontsize = int(self.options['font_size'])
         fontname = self.options['font_name_r']
-        id = '%s.%s' % (unicode(fontname), unicode(fontsize))
+        try:
+            id = '%s.%s' % (text_type(fontname), text_type(fontsize))
+        except UnicodeDecodeError:
+            id = '%s.%s' % (fontname, fontsize)
+
         if not id in self._cache:
             font = ImageFont.truetype(fontname, fontsize)
             self._cache[id] = font

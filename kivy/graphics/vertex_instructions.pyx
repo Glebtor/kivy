@@ -37,16 +37,16 @@ cdef class Bezier(VertexInstruction):
     :Parameters:
         `points`: list
             List of points in the format (x1, y1, x2, y2...)
-        `segments`: int, default to 180
+        `segments`: int, defaults to 180
             Define how much segment is needed for drawing the ellipse.
             The drawing will be smoother if you have lot of segment.
-        `loop`: bool, default to False
+        `loop`: bool, defaults to False
             Set the bezier curve to join last point to first.
         `dash_length`: int
-            length of a segment (if dashed), default 1
+            Length of a segment (if dashed), defaults 1
         `dash_offset`: int
-            distance between the end of a segment and the start of the
-            next one, default 0, changing this makes it dashed.
+            Distance between the end of a segment and the start of the
+            next one, defaults to 0. Changing this makes it dashed.
     '''
 
     # TODO: refactoring:
@@ -98,7 +98,7 @@ cdef class Bezier(VertexInstruction):
             memset(buf, 255, self._dash_length * 4)
             memset(buf + self._dash_length * 4, 0, self._dash_offset * 4)
 
-            p_str = PyString_FromStringAndSize(buf,  (self._dash_length + self._dash_offset) * 4)
+            p_str = buf[:(self._dash_length + self._dash_offset) * 4]
 
             texture.blit_buffer(p_str, colorfmt='rgba', bufferfmt='ubyte')
             free(buf)
@@ -245,7 +245,7 @@ cdef class Mesh(VertexInstruction):
         `indices`: list
             List of indices in the format (i1, i2, i3...)
         `mode`: str
-            Mode of the vbo. Check :data:`mode` for more information. Default to
+            Mode of the vbo. Check :data:`mode` for more information. Defaults to
             'points'.
 
     '''
@@ -266,8 +266,9 @@ cdef class Mesh(VertexInstruction):
         self.mode = kwargs.get('mode') or 'points'
 
     cdef void build(self):
-        cdef int i, vcount = len(self._vertices)
-        cdef int icount = len(self._indices)
+        cdef int i
+        cdef long vcount = len(self._vertices)
+        cdef long icount = len(self._indices)
         cdef float *vertices = NULL
         cdef unsigned short *indices = NULL
         cdef list lvertices = self._vertices
@@ -292,7 +293,7 @@ cdef class Mesh(VertexInstruction):
         for i in xrange(icount):
             indices[i] = lindices[i]
 
-        self.batch.set_data(vertices, vcount / vsize, indices, icount)
+        self.batch.set_data(vertices, <int>(vcount / vsize), indices, <int>icount)
 
         free(vertices)
         free(indices)
@@ -339,7 +340,7 @@ cdef class Point(VertexInstruction):
     :Parameters:
         `points`: list
             List of points in the format (x1, y1, x2, y2...)
-        `pointsize`: float, default to 1.
+        `pointsize`: float, defaults to 1.
             Size of the point (1. mean the real size will be 2)
 
     .. warning::
@@ -360,11 +361,10 @@ cdef class Point(VertexInstruction):
         self.pointsize = kwargs.get('pointsize') or 1.
 
     cdef void build(self):
-        cdef float t0, t1, t2, t3, t4, t5, t6, t7
         cdef float x, y, ps = self._pointsize
         cdef int i, iv, ii, count = <int>(len(self._points) * 0.5)
         cdef list p = self.points
-        cdef list tc = self._tex_coords
+        cdef float *tc = self._tex_coords
         cdef vertex_t *vertices = NULL
         cdef unsigned short *indices = NULL
 
@@ -382,28 +382,26 @@ cdef class Point(VertexInstruction):
             free(vertices)
             raise MemoryError('indices')
 
-        t0, t1, t2, t3, t4, t5, t6, t7 = tc
-
         for i in xrange(count):
             x = p[i * 2]
             y = p[i * 2 + 1]
             iv = i * 4
             vertices[iv].x = x - ps
             vertices[iv].y = y - ps
-            vertices[iv].s0 = t0
-            vertices[iv].t0 = t1
+            vertices[iv].s0 = tc[0]
+            vertices[iv].t0 = tc[1]
             vertices[iv + 1].x = x + ps
             vertices[iv + 1].y = y - ps
-            vertices[iv + 1].s0 = t2
-            vertices[iv + 1].t0 = t3
+            vertices[iv + 1].s0 = tc[2]
+            vertices[iv + 1].t0 = tc[3]
             vertices[iv + 2].x = x + ps
             vertices[iv + 2].y = y + ps
-            vertices[iv + 2].s0 = t4
-            vertices[iv + 2].t0 = t5
+            vertices[iv + 2].s0 = tc[4]
+            vertices[iv + 2].t0 = tc[5]
             vertices[iv + 3].x = x - ps
             vertices[iv + 3].y = y + ps
-            vertices[iv + 3].s0 = t6
-            vertices[iv + 3].t0 = t7
+            vertices[iv + 3].s0 = tc[6]
+            vertices[iv + 3].t0 = tc[7]
 
             ii = i * 6
             indices[ii] = iv
@@ -413,7 +411,8 @@ cdef class Point(VertexInstruction):
             indices[ii + 4] = iv + 3
             indices[ii + 5] = iv
 
-        self.batch.set_data(vertices, count * 4, indices, count * 6)
+        self.batch.set_data(vertices, <int>(count * 4),
+                            indices, <int>(count * 6))
 
         free(vertices)
         free(indices)
@@ -426,10 +425,9 @@ cdef class Point(VertexInstruction):
         list will recalculate and reupload the whole buffer into GPU.
         If you use add_point, it will only upload the changes.
         '''
-        cdef float t0, t1, t2, t3, t4, t5, t6, t7
         cdef float ps = self._pointsize
         cdef int iv, count = <int>(len(self._points) * 0.5)
-        cdef list tc = self._tex_coords
+        cdef float *tc = self._tex_coords
         cdef vertex_t vertices[4]
         cdef unsigned short indices[6]
 
@@ -439,23 +437,22 @@ cdef class Point(VertexInstruction):
         self._points.append(x)
         self._points.append(y)
 
-        t0, t1, t2, t3, t4, t5, t6, t7 = tc
         vertices[0].x = x - ps
         vertices[0].y = y - ps
-        vertices[0].s0 = t0
-        vertices[0].t0 = t1
+        vertices[0].s0 = tc[0]
+        vertices[0].t0 = tc[1]
         vertices[1].x = x + ps
         vertices[1].y = y - ps
-        vertices[1].s0 = t2
-        vertices[1].t0 = t3
+        vertices[1].s0 = tc[2]
+        vertices[1].t0 = tc[3]
         vertices[2].x = x + ps
         vertices[2].y = y + ps
-        vertices[2].s0 = t4
-        vertices[2].t0 = t5
+        vertices[2].s0 = tc[4]
+        vertices[2].t0 = tc[5]
         vertices[3].x = x - ps
         vertices[3].y = y + ps
-        vertices[3].s0 = t6
-        vertices[3].t0 = t7
+        vertices[3].s0 = tc[6]
+        vertices[3].t0 = tc[7]
 
         iv = count * 4
         indices[0] = iv
@@ -513,7 +510,8 @@ cdef class Triangle(VertexInstruction):
         self.points = v if v is not None else (0.0,0.0, 100.0,0.0, 50.0,100.0)
 
     cdef void build(self):
-        cdef list vc, tc
+        cdef list vc
+        cdef float *tc
         cdef vertex_t vertices[3]
         cdef unsigned short *indices = [0, 1, 2]
 
@@ -562,7 +560,8 @@ cdef class Quad(VertexInstruction):
                 100.0,  50.0,   50.0, 100.0 )
 
     cdef void build(self):
-        cdef list vc, tc
+        cdef list vc
+        cdef float *tc
         cdef vertex_t vertices[4]
         cdef unsigned short *indices = [0, 1, 2, 2, 3, 0]
 
@@ -622,7 +621,7 @@ cdef class Rectangle(VertexInstruction):
 
     cdef void build(self):
         cdef float x, y, w, h
-        cdef list tc = self._tex_coords
+        cdef float *tc = self._tex_coords
         cdef vertex_t vertices[4]
         cdef unsigned short *indices = [0, 1, 2, 2, 3, 0]
 
@@ -708,7 +707,7 @@ cdef class BorderImage(Rectangle):
 
         # width and heigth of texture in pixels, and tex coord space
         cdef float tw, th, tcw, tch
-        cdef list tc = self._tex_coords
+        cdef float *tc = self._tex_coords
         cdef float tc0, tc1, tc2, tc7
         tc0 = tc[0]
         tc1 = tc[1]
@@ -809,12 +808,12 @@ cdef class Ellipse(Rectangle):
     .. versionadded:: 1.0.7 added angle_start + angle_end
 
     :Parameters:
-        `segments`: int, default to 180
+        `segments`: int, defaults to 180
             Define how much segment is needed for drawing the ellipse.
             The drawing will be smoother if you have lot of segment.
-        `angle_start`: int default to 0
+        `angle_start`: int, defaults to 0
             Specifies the starting angle, in degrees, of the disk portion
-        `angle_end`: int default to 360
+        `angle_end`: int, defaults to 360
             Specifies the ending angle, in degrees, of the disk portion
     '''
     cdef int _segments
@@ -829,13 +828,17 @@ cdef class Ellipse(Rectangle):
         self._angle_end = kwargs.get('angle_end') or 360
 
     cdef void build(self):
-        cdef list tc = self.tex_coords
+        cdef float *tc = self._tex_coords
         cdef int i, angle_dir
         cdef float angle_start, angle_end, angle_range
         cdef float x, y, angle, rx, ry, ttx, tty, tx, ty, tw, th
+        cdef float cx, cy, tangetial_factor, radial_factor, fx, fy
         cdef vertex_t *vertices = NULL
         cdef unsigned short *indices = NULL
         cdef int count = self._segments
+
+        if self.w == 0 or self.h == 0:
+            return
 
         tx = tc[0]
         ty = tc[1]
@@ -855,16 +858,17 @@ cdef class Ellipse(Rectangle):
             raise MemoryError('indices')
 
         # calculate the start/end angle in radians, and adapt the range
-        if self.angle_end > self.angle_start:
+        if self._angle_end > self._angle_start:
             angle_dir = 1
         else:
             angle_dir = -1
-        # rad = deg * (pi / 180), where pi/180 = 0.0174...
+
+        # rad = deg * (pi / 180), where pi / 180 = 0.0174...
         angle_start = self._angle_start * 0.017453292519943295
         angle_end = self._angle_end * 0.017453292519943295
-        angle_range = abs(angle_end - angle_start) / self._segments
+        angle_range = -1 * (angle_end - angle_start) / self._segments
 
-        # add start vertice in the middle
+        # add start vertex in the middle
         x = self.x + rx
         y = self.y + ry
         ttx = ((x - self.x) / self.w) * tw + tx
@@ -875,17 +879,36 @@ cdef class Ellipse(Rectangle):
         vertices[0].t0 = tty
         indices[0] = 0
 
+        # super fast ellipse drawing
+        # credit goes to: http://slabode.exofire.net/circle_draw.shtml
+        tangetial_factor = tan(angle_range)
+        radial_factor = cos(angle_range)
+
+        # Calculate the coordinates for a circle with radius 0.5 about
+        # the point (0.5, 0.5). Only stretch to an ellipse later.
+        cx = 0.5
+        cy = 0.5
+        r = 0.5
+        x = r * sin(angle_start)
+        y = r * cos(angle_start)
+
         for i in xrange(1, count + 2):
-            angle = angle_start + (angle_dir * (i - 1) * angle_range)
-            x = (self.x+rx)+ (rx*sin(angle))
-            y = (self.y+ry)+ (ry*cos(angle))
-            ttx = ((x-self.x)/self.w)*tw + tx
-            tty = ((y-self.y)/self.h)*th + ty
-            vertices[i].x = x
-            vertices[i].y = y
+            ttx = (cx + x) * tw + tx
+            tty = (cy + y) * th + ty
+            real_x = self.x + (cx + x) * self.w
+            real_y = self.y + (cy + y) * self.h
+            vertices[i].x = real_x
+            vertices[i].y = real_y
             vertices[i].s0 = ttx
             vertices[i].t0 = tty
             indices[i] = i
+
+            fx = -y
+            fy = x
+            x += fx * tangetial_factor
+            y += fy * tangetial_factor
+            x *= radial_factor
+            y *= radial_factor
 
         self.batch.set_data(vertices, count + 2, indices, count + 2)
 
@@ -902,7 +925,7 @@ cdef class Ellipse(Rectangle):
             self.flag_update()
 
     property angle_start:
-        '''Angle start of the ellipse in degrees, default to 0
+        '''Angle start of the ellipse in degrees, defaults to 0
         '''
         def __get__(self):
             return self._angle_start
@@ -911,11 +934,13 @@ cdef class Ellipse(Rectangle):
             self.flag_update()
 
     property angle_end:
-        '''Angle end of the ellipse in degrees, default to 360
+        '''Angle end of the ellipse in degrees, defaults to 360
         '''
         def __get__(self):
             return self._angle_end
         def __set__(self, value):
             self._angle_end = value
             self.flag_update()
+
+    
 

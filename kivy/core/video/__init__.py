@@ -2,8 +2,16 @@
 Video
 =====
 
-Core class for reading video file and manage the
+Core class for reading video files and managing the
 :class:`kivy.graphics.texture.Texture` video.
+
+.. versionchanged:: 1.8.0
+
+    There is now 2 distinct Gstreamer implementation: one using Gi/Gst working
+    for both Python 2+3 with Gstreamer 1.0, and one using PyGST working only for
+    Python 2 + Gstreamer 0.10.
+    If you have issue with GStreamer, have a look at
+    :ref:`gstreamer-compatibility`
 
 .. note::
 
@@ -15,30 +23,36 @@ __all__ = ('VideoBase', 'Video')
 from kivy.clock import Clock
 from kivy.core import core_select_lib
 from kivy.event import EventDispatcher
+from kivy.logger import Logger
+from kivy.compat import PY2
 
 
 class VideoBase(EventDispatcher):
-    '''VideoBase, a class to implement a video reader.
+    '''VideoBase, a class used to implement a video reader.
 
     :Parameters:
         `filename` : str
             Filename of the video. Can be a file or an URI.
-        `eos` : str, default to 'pause'
-            Action to do when EOS is hit. Can be one of 'pause', 'stop' or
-            'loop'
-            .. versionchanged:: added 'pause'
-        `async` : bool, default to True
-            Asynchronous loading (may be not supported by all providers)
-        `autoplay` : bool, default to False
-            Auto play the video at init
+        `eos` : str, defaults to 'pause'
+            Action to take when EOS is hit. Can be one of 'pause', 'stop' or
+            'loop'.
+
+            .. versionchanged::
+                added 'pause'
+
+        `async` : bool, defaults to True
+            Load the video asynchronously (may be not supported by all
+            providers).
+        `autoplay` : bool, defaults to False
+            Auto play the video on init.
 
     :Events:
         `on_eos`
-            Fired when EOS is hit
+            Fired when EOS is hit.
         `on_load`
-            Fired when the video is loaded, texture is available
+            Fired when the video is loaded and the texture is available.
         `on_frame`
-            Fired when a new frame is written on texture
+            Fired when a new frame is written to the texture.
     '''
 
     __slots__ = ('_wantplay', '_buffer', '_filename', '_texture',
@@ -100,7 +114,7 @@ class VideoBase(EventDispatcher):
 
     filename = property(lambda self: self._get_filename(),
             lambda self, x: self._set_filename(x),
-            doc='Get/set the filename/uri of current video')
+            doc='Get/set the filename/uri of the current video')
 
     def _get_position(self):
         return 0
@@ -140,7 +154,7 @@ class VideoBase(EventDispatcher):
     state = property(lambda self: self._get_state(),
             doc='Get the video playing status')
 
-    def _do_eos(self):
+    def _do_eos(self, *args):
         '''.. versionchanged:: 1.4.0
         Now dispatches the `on_eos` event.
         '''
@@ -149,12 +163,12 @@ class VideoBase(EventDispatcher):
         elif self.eos == 'stop':
             self.stop()
         elif self.eos == 'loop':
-            self.stop()
+            self.position = 0
             self.play()
 
         self.dispatch('on_eos')
 
-    def _update(self):
+    def _update(self, dt):
         '''Update the video content to texture.
         '''
         pass
@@ -169,6 +183,7 @@ class VideoBase(EventDispatcher):
 
     def pause(self):
         '''Pause the video
+
         .. versionadded:: 1.4.0
         '''
         self._state = 'paused'
@@ -187,9 +202,21 @@ class VideoBase(EventDispatcher):
 
 
 # Load the appropriate provider
-Video = core_select_lib('video', (
-    ('gstreamer', 'video_gstreamer', 'VideoGStreamer'),
+video_providers = []
+try:
+    from kivy.lib.gstplayer import GstPlayer
+    video_providers += [('gstplayer', 'video_gstplayer', 'VideoGstplayer')]
+except ImportError:
+    #video_providers += [('gi', 'video_gi', 'VideoGi')]
+    if PY2:
+        # if peoples do not have gi, fallback on pygst, only for python2
+        video_providers += [
+            ('pygst', 'video_pygst', 'VideoPyGst')]
+video_providers += [
     ('ffmpeg', 'video_ffmpeg', 'VideoFFMpeg'),
     ('pyglet', 'video_pyglet', 'VideoPyglet'),
-))
+    ('null', 'video_null', 'VideoNull')]
+
+
+Video = core_select_lib('video', video_providers)
 

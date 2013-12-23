@@ -4,6 +4,11 @@ Kivy
 Innovative User Interfaces Made Easy
 http://kivy.org/
 
+
+.. image:: https://coveralls.io/repos/kivy/kivy/badge.png?branch=master
+  :target: https://coveralls.io/r/kivy/kivy?branch=master
+
+
 Introduction
 ------------
 
@@ -66,9 +71,15 @@ natural user interfaces.
 Licenses
 --------
 
-- Kivy is licensed under the terms of the LGPL 3, check the COPYING file.
+- Kivy is licensed under the terms of the MIT, check the LICENSE file.
 - The provided fonts DroidSans.ttf and DroidSansMono.ttf are licensed under
   the terms of the Apache 2.0 License. The license can be found at
   http://www.apache.org/licenses/LICENSE-2.0
 - The current UI design has been adapted from Moblintouch theme's SVGs, licensed
   under the terms of the LGPL 2.1.
+
+
+.. image:: https://d2weczhvl823v0.cloudfront.net/kivy/kivy/trend.png
+   :alt: Bitdeli badge
+   :target: https://bitdeli.com/free
+
